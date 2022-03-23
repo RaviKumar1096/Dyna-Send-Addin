@@ -13,6 +13,7 @@
     "allowUnusedLabels": false,
     "noImplicitReturns": true,
     "noUnusedParameters": true,
+    "resolveJsonModule": true,
     "lib": [
       "es7",
       "dom"

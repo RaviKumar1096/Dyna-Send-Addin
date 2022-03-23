@@ -2,12 +2,9 @@
  * Copyright (c) Microsoft Corporation. All rights reserved. Licensed under the MIT license.
  * See LICENSE in the project root for license information.
  */
-
-import { domain } from "process";
-import { SigntaureResponse } from "../taskpane/components/HomePage/App";
-import { getSigntaure } from "../taskpane/service/APIService/GetSignature";
+import { getSendSignature, getSigntaure } from "../taskpane/service/APIService/GetSignature";
 import { composeSignature, composeSignatureOnSend, extractSignature, setSignature } from "../taskpane/service/SignatureServcie/SignatureServices";
-import {deferred} from "promise-callbacks"
+
 
 /* global global, Office, self, window */
 var mailboxItem;
@@ -16,7 +13,7 @@ Office.onReady(() => {
   mailboxItem = Office.context.mailbox.item;
 });
 
-
+// const dataContextStore=useContext(DataContext);
 // Office.initialize = function (reason) {
 //     mailboxItem = Office.context.mailbox.item;
 // }
@@ -25,8 +22,8 @@ Office.onReady(() => {
  * Shows a notification when the add-in command is executed.
  * @param event
  */
-function action(event: Office.AddinCommands.Event) {
-  const message: Office.NotificationMessageDetails = {
+function action(event) {
+  const message = {
     type: Office.MailboxEnums.ItemNotificationMessageType.InformationalMessage,
     message: "Performed action.",
     icon: "Icon.80x80",
@@ -61,11 +58,12 @@ function shouldChangeSubjectOnSend(event) {
     { asyncContext: event },
     async function (asyncResult) {
       console.log(asyncResult, "on send");
-      const promise = deferred();
       var isInDOmain = await getAllRecipients();
       console.log(isInDOmain,"64");
-      getSigntaure().then(async (data) => {
-        await composeSignatureOnSend(data, isInDOmain,asyncResult).then(function () {
+      getSendSignature().then(async (data) => {
+      // localStorage.setItem("AbbreViatedSignature", data.use_abbreviated_REPLY_signature.toString());
+        console.log(data.data,"68");
+        await composeSignatureOnSend(data.data, isInDOmain,asyncResult).then(function () {
         });
       });
     }
@@ -136,11 +134,7 @@ export function getBCC(bccRecipients){
 export async function getAllRecipients() {
 
   var CheckDOmain=[];
-  var flag
-
   let isInDOmain;
-  let checkAllCC;
-  let checkBCC
 
   var toRecipients, ccRecipients, bccRecipients;
   if (mailboxItem.itemType == Office.MailboxEnums.ItemType.Appointment) {
@@ -152,20 +146,17 @@ export async function getAllRecipients() {
     ccRecipients = mailboxItem.cc;
     bccRecipients = mailboxItem.bcc;
   }
-  // toRecipients(toRecipients)
 
       CheckDOmain.push(await getAllCC(toRecipients));//null//true//false
       if(CheckDOmain[0] || CheckDOmain[0]===null)
       {
-        // flag=CheckDOmain?true:null;
         CheckDOmain.push(await getToCC(ccRecipients));//null//true//false
         if(CheckDOmain[1] || CheckDOmain[1]===null)
         { 
-          // flag=CheckDOmain?true:null;
           CheckDOmain.push(await getBCC(bccRecipients));//null//true//false
           if(CheckDOmain[2] || CheckDOmain[2]===null)
           {
-            // flag=(CheckDOmain || flag==true)?flag:null;
+
           }
         }
       }
@@ -179,67 +170,6 @@ export async function getAllRecipients() {
         });
       }
       return isInDOmain===undefined?null:isInDOmain;
-      // return CheckDOmain===null?(flag==true?true:null):CheckDOmain;
-      // return (checkToCC==null && checkAllCC== null &&checkBCC==null)?null:()
-  // var promiseToCC= new Promise((resolve)=>{
-  //    toRecipients.getAsync(async function (asyncResult) {
-  //     if (asyncResult.status == Office.AsyncResultStatus.Failed) {
-  //       console.log(asyncResult.error.message);
-  //     }
-  //     else {
-  //       // Async call to get to-recipients of the item completed.
-  //       // Display the email addresses of the to-recipients. 
-  //       console.log('To-recipients of the item:');
-  //       CheckDOmain = await displayAddresses(asyncResult);
-        
-  //     }
-  //     if (!CheckDOmain) {
-  //       console.log(CheckDOmain, "97");
-  //       return resolve(CheckDOmain);
-  //     }
-  //   });
-  // })
-
-//   var promiseCC= new Promise((resolve)=>{
-//   ccRecipients.getAsync(async (asyncResult) => {
-//     if (asyncResult.status == Office.AsyncResultStatus.Failed) {
-//       console.log(asyncResult.error.message);
-//     }
-//     else {
-//       // Async call to get cc-recipients of the item completed.
-//       // Display the email addresses of the cc-recipients.
-//       console.log('Cc-recipients of the item:');
-//       console.log(Office.context.mailbox.userProfile.emailAddress);
-//       CheckDOmain = await displayAddresses(asyncResult);
-//     }
-//     if (!CheckDOmain) {
-//       console.log(CheckDOmain, "112");
-//       return CheckDOmain;
-//     }
-//   });
-// }
-
-
-  // if (bccRecipients) {
-  //   bccRecipients.getAsync(async function (asyncResult) {
-  //     if (asyncResult.status == Office.AsyncResultStatus.Failed) {
-  //       console.log(asyncResult.error.message);
-  //     }
-  //     else {
-  //       // Async call to get bcc-recipients of the item completed.
-  //       // Display the email addresses of the bcc-recipients.
-  //       console.log('Bcc-recipients of the item:');
-  //       CheckDOmain = await displayAddresses(asyncResult);
-  //     }
-  //     if (!CheckDOmain) {
-  //       console.log(CheckDOmain, "128");
-  //       return CheckDOmain;
-  //     }
-  //   }); // End getAsync for bcc-recipients.
-   
-  // }
-  // console.log(CheckDOmain, "130");
-  // return CheckDOmain;
 }
 
 
@@ -266,34 +196,30 @@ function displayAddresses(asyncResult) {
 }
 
 async function setSubject(event) {
-  Office.context.mailbox.item.subject.setAsync(
-    "Set by an event-based add-in!",
-    {
-      "asyncContext" : event
-    },
-    function (asyncResult) {
-      // Handle success or error.
-      if (asyncResult.status !== Office.AsyncResultStatus.Succeeded) {
-        console.error("Failed to set subject: " + JSON.stringify(asyncResult.error));
-      }
+  var isInDOmain = getAllRecipients();
+  console.log(isInDOmain, "165");
+  getSigntaure().then(async (data) => {
+    console.log(data);
+    composeSignature(data.data, await isInDOmain)
+  });
+  // Office.context.mailbox.item.subject.setAsync(
+  //   "Set by an event-based add-in!",
+  //   {
+  //     "asyncContext": event
+  //   },
+  //   function (asyncResult) {
+  //     // Handle success or error.
+  //     if (asyncResult.status !== Office.AsyncResultStatus.Succeeded) {
+  //       console.error("Failed to set subject: " + JSON.stringify(asyncResult.error));
+  //     }
 
-      // Call event.completed() after all work is done.
-      asyncResult.asyncContext.completed();
-    });
-  // var isInDOmain = getAllRecipients();
-  // console.log(isInDOmain, "165");
-  // getSigntaure().then(async (data) => {
-  //   console.log(data);
-  //   composeSignature(data, await isInDOmain)
-  // });
-  // let messageType = "";
-  // console.log(event.source);
-
-  // console.log(messageType);
+  //     // Call event.completed() after all work is done.
+  //     asyncResult.asyncContext.completed();
+  //   });
 }
 
-function insertDefaultGist(event: Office.AddinCommands.Event) {
-  const message: Office.NotificationMessageDetails = {
+function insertDefaultGist(event) {
+  const message = {
     type: Office.MailboxEnums.ItemNotificationMessageType.InformationalMessage,
     message: "Performed action.",
     icon: "Icon.80x80",
@@ -328,7 +254,7 @@ Office.actions.associate("onMessageComposeHandler", onMessageComposeHandler);
 Office.actions.associate("onAppointmentComposeHandler", onAppointmentComposeHandler);
 Office.actions.associate("validateSubjectAndCC", validateSubjectAndCC);
 
-const g = getGlobal() as any;
+const g = getGlobal();
 
 // The add-in command functions need to be available in global scope
 g.action = action;
